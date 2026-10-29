@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>트랜스포머는 어떻게 말을 할까?</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #3a2a5a; --pink: #ff6fa5; --sky: #5ec8ff; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: 'Jua', system-ui, sans-serif; color: var(--ink); user-select: none;
+    background: linear-gradient(#bfe6ff 0%, #e9f6ff 55%, #fff3e0 100%); }
+  canvas { display: block; position: fixed; inset: 0; }
+  #title { position: fixed; left: 18px; top: 12px; font-size: clamp(18px, 3.2vw, 30px); text-shadow: 0 2px 0 #fff; pointer-events: none; }
+  #title small { display: block; font-size: clamp(12px, 1.8vw, 16px); opacity: .75; }
+  #card { position: fixed; left: 50%; bottom: 74px; transform: translateX(-50%); width: min(940px, 94vw); box-sizing: border-box; background: #ffffffee;
+    border: 4px solid var(--ink); border-radius: 26px; padding: 12px 22px 12px; box-shadow: 0 8px 0 #3a2a5a33; }
+  #stepTag { position: absolute; top: -18px; left: 22px; background: var(--pink); color: #fff; border: 3px solid var(--ink); border-radius: 16px; padding: 1px 14px; font-size: 17px; }
+  #cTitle { margin: 4px 0 2px; font-size: clamp(22px, 3.4vw, 34px); }
+  #cText { margin: 0; font-size: clamp(17px, 2.6vw, 26px); line-height: 1.45; }
+  #sub { margin-top: 4px; font-size: clamp(15px, 2.2vw, 22px); color: #d6336c; min-height: 1.2em; }
+  #adult { margin-top: 4px; font-size: 13px; color: #6b5f86; border-top: 2px dashed #3a2a5a33; padding-top: 4px; }
+  #nav { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+  #nav button { font-family: inherit; font-size: clamp(14px, 2.4vw, 22px); padding: 5px clamp(8px, 2vw, 20px); white-space: nowrap; border: 3px solid var(--ink); border-radius: 22px; background: #fff; color: var(--ink); cursor: pointer; box-shadow: 0 4px 0 #3a2a5a55; }
+  #nav button:hover { background: #fff2a8; } #nav button.on { background: var(--pink); color: #fff; }
+  #dots { display: flex; gap: 7px; } #dots i { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); cursor: pointer; }
+  #dots i.on { background: var(--pink); transform: scale(1.35); }
+  #intro { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #ffffffb8; backdrop-filter: blur(4px); z-index: 10; }
+  #intro h1 { font-size: clamp(34px, 7vw, 68px); margin: 0 0 8px; line-height: 1.15; }
+  #intro p { font-size: clamp(16px, 2.6vw, 24px); margin: 4px 0; }
+  #intro button { font-family: inherit; font-size: 32px; margin-top: 18px; padding: 10px 46px; border: 4px solid var(--ink); border-radius: 36px; background: var(--pink); color: #fff; cursor: pointer; box-shadow: 0 6px 0 #3a2a5a66; animation: bob 1s infinite alternate; }
+  @keyframes bob { to { transform: translateY(-6px); } }
+  .hidden { display: none !important; }
+  a.back { position: fixed; right: 14px; top: 12px; z-index: 5; color: var(--ink); text-decoration: none; font-size: 14px; background: #ffffffcc; border: 2px solid var(--ink); padding: 2px 12px; border-radius: 14px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="title">🤖 트랜스포머는 어떻게 말을 할까?<small>유치원생도 아는 챗GPT · 제미나이 · 클로드 이야기</small></div>
+<a class="back" href="index.html">← 처음으로</a>
+<div id="card">
+  <div id="stepTag">1 / 9</div>
+  <div id="cTitle"></div>
+  <p id="cText"></p>
+  <div id="sub"></div>
+  <div id="adult"></div>
+</div>
+<div id="nav"><button id="prev">◀</button><div id="dots"></div><button id="next">▶</button><button id="auto">⏯ 자동</button><button id="voice" class="on">🔊 읽어주기</button></div>
+<div id="intro">
+  <h1>🤖 AI는<br>어떻게 말을 할까요?</h1>
+  <p>챗GPT, 제미나이, 클로드가 쓰는 <b>트랜스포머</b>의 비밀!</p>
+  <p>그림과 애니메이션으로 아주 쉽게 알려줄게요 ✨</p>
+  <button id="go">시작하기!</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = id => document.getElementById(id);
+const V3 = THREE.Vector3, TAU = Math.PI * 2;
+const lerp = THREE.MathUtils.lerp, clamp = THREE.MathUtils.clamp;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const easeOutBack = t => { const c = 1.70158; t = clamp(t, 0, 1); return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+const easeInOut = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+const damp = (dt, k) => 1 - Math.exp(-dt * k);
+
+try { await Promise.race([document.fonts.load('48px Jua'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
+
+/* ---------- 렌더러 ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); renderer.setClearColor(0x000000, 0);
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200); scene.add(camera);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xcfd8ff, 1.9));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(5, 10, 8); scene.add(sun);
+const fitView = () => { camera.aspect = innerWidth / innerHeight; camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * 0.13, innerWidth, innerHeight); camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); };
+fitView(); addEventListener('resize', fitView);
+
+/* ---------- 글자 도우미 (canvas 텍스처) ---------- */
+function textCanvas(text, o = {}) {
+  const size = o.size || 96, sw = o.sw ?? 10, font = `${size}px Jua, system-ui, sans-serif`;
+  const c = document.createElement('canvas'), g = c.getContext('2d'); g.font = font;
+  const w = Math.ceil(g.measureText(text).width) + sw * 2 + 24 + (o.bg ? 40 : 0), h = Math.ceil(size * 1.4) + (o.bg ? 16 : 0); c.width = w; c.height = h;
+  g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  if (o.bg) { g.fillStyle = o.bg; g.strokeStyle = '#3a2a5a'; g.lineWidth = 6; const r = h / 2 - 4; g.beginPath(); g.roundRect ? g.roundRect(4, 4, w - 8, h - 8, r) : g.rect(4, 4, w - 8, h - 8); g.fill(); g.stroke(); }
+  if (sw && !o.bg) { g.lineWidth = sw; g.strokeStyle = o.stroke || '#3a2a5a'; g.strokeText(text, w / 2, h / 2 + 4); }
+  g.fillStyle = o.color || '#fff'; g.fillText(text, w / 2, h / 2 + 4);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return { tex, aspect: w / h };
+}
+function textMesh(text, height, o) { const { tex, aspect } = textCanvas(text, o); const m = new THREE.Mesh(new THREE.PlaneGeometry(height * aspect, height), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })); m.userData.w = height * aspect; return m; }
+function textSprite(text, height, o) { const { tex, aspect } = textCanvas(text, o); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); s.scale.set(height * aspect, height, 1); s.userData.w = height * aspect; return s; }
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, ...o });
+
+/* ---------- 반짝이 / 버블 파티클 ---------- */
+function makePoints(n, { size = 1, blend = THREE.NormalBlending } = {}) {
+  const g = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), col = new Float32Array(n * 3), sz = new Float32Array(n), al = new Float32Array(n);
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('size', new THREE.BufferAttribute(sz, 1)); g.setAttribute('alpha', new THREE.BufferAttribute(al, 1));
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: blend,
+    vertexShader: 'attribute float size, alpha; attribute vec3 color; varying float vA; varying vec3 vC; void main(){ vA = alpha; vC = color; vec4 mv = modelViewMatrix * vec4(position, 1.); gl_PointSize = size * 320. / -mv.z; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'varying float vA; varying vec3 vC; void main(){ float d = length(gl_PointCoord - .5); if (d > .5) discard; float a = smoothstep(.5, .3, d) * vA; gl_FragColor = vec4(vC, a); }' });
+  const p = new THREE.Points(g, m); p.frustumCulled = false; scene.add(p); return { p, pos, col, sz, al, n, g };
+}
+const sparks = makePoints(260), spV = Array.from({ length: 260 }, () => new V3()), spL = new Float32Array(260), spM = new Float32Array(260); let spI = 0;
+const _c = new THREE.Color();
+function burst(p, color, n = 20, speed = 4, o = {}) {
+  for (let i = 0; i < n; i++) { const k = spI; spI = (spI + 1) % sparks.n; sparks.pos.set([p.x, p.y, p.z], k * 3); _c.set(Array.isArray(color) ? color[i % color.length] : color); sparks.col.set([_c.r, _c.g, _c.b], k * 3);
+    spV[k].set(rnd(-1, 1), rnd(-0.2, 1.2), rnd(-1, 1)).multiplyScalar(speed * rnd(0.4, 1)); if (o.v) spV[k].add(o.v); spL[k] = spM[k] = rnd(0.7, 1.4) * (o.life || 1); sparks.sz[k] = rnd(0.18, 0.4) * (o.size || 1); }
+}
+function updSparks(dt) {
+  for (let i = 0; i < sparks.n; i++) { if (spL[i] > 0) { spL[i] -= dt; spV[i].y -= 3.2 * dt; sparks.pos[i * 3] += spV[i].x * dt; sparks.pos[i * 3 + 1] += spV[i].y * dt; sparks.pos[i * 3 + 2] += spV[i].z * dt; sparks.al[i] = clamp(spL[i] / spM[i] * 1.6, 0, 1); } else sparks.al[i] = 0; }
+  sparks.g.attributes.position.needsUpdate = sparks.g.attributes.color.needsUpdate = sparks.g.attributes.size.needsUpdate = sparks.g.attributes.alpha.needsUpdate = true;
+}
+const bub = makePoints(70); const bubS = Array.from({ length: 70 }, () => ({ x: rnd(-20, 20), y: rnd(-8, 14), z: rnd(-14, 2), s: rnd(0.4, 1.5), v: rnd(0.2, 0.6) }));
+bubS.forEach((b, i) => { bub.col.set([1, 1, 1], i * 3); bub.sz[i] = b.s * 1.6; bub.al[i] = 0.5; });
+function updBubbles(dt, t) { bubS.forEach((b, i) => { b.y += b.v * dt; if (b.y > 14) b.y = -8; bub.pos.set([b.x + Math.sin(t * 0.5 + i) * 0.6, b.y, b.z], i * 3); }); bub.g.attributes.position.needsUpdate = true; bub.g.attributes.size.needsUpdate = bub.g.attributes.alpha.needsUpdate = bub.g.attributes.color.needsUpdate = true; }
+
+/* ---------- 말 블록 (주인공들) ---------- */
+const PAL = ['#ff7a8a', '#ffb347', '#5ec8ff', '#7be07a', '#ff9ad5', '#9aa8ff', '#ffd93d'];
+const allBlocks = [];
+function makeBlock(text, color, hasEyes = true) {
+  const g = new THREE.Group(), w = Math.max(1.7, text.length * 0.6 + 0.95), h = 1.35, m = mat(color);
+  g.add(new THREE.Mesh(new RoundedBoxGeometry(w, h, 0.6, 5, 0.2), m));
+  const lab = textMesh(text, 0.64, { size: 96 }); lab.position.set(0, -0.2, 0.31); g.add(lab);
+  const pupils = [];
+  if (hasEyes) for (const sx of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), mat(0xffffff, { roughness: 0.2 })); e.position.set(sx * 0.28, 0.33, 0.28); e.scale.z = 0.5; g.add(e);
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 10), mat(0x1a1030, { roughness: 0.2 })); p.position.set(sx * 0.28, 0.33, 0.37); g.add(p); pupils.push({ m: p, bx: sx * 0.28, by: 0.33 });
+  }
+  scene.add(g); g.visible = false;
+  const b = { g, w, h, m, text, pupils, t: { p: new V3(), s: 0, ry: 0 }, look: null, bob: 0.05, i: allBlocks.length };
+  g.scale.setScalar(0.001); allBlocks.push(b); return b;
+}
+const BW = ['나는', '아침에', '우유를', '마셨다', '그리고', '학교에', '갔다'];
+const blk = BW.map((t, i) => makeBlock(t, PAL[i % PAL.length])); const qBlk = makeBlock('?', '#b58cff');
+function rowX(list, gap) { const tot = list.reduce((s, b) => s + b.w * b.t.s0, 0) + gap * (list.length - 1); return tot; }
+function layoutRow(list, y, z, gap, s = 1, x0 = null) {
+  const tot = list.reduce((a, b) => a + b.w * s, 0) + gap * (list.length - 1); let x = x0 === null ? -tot / 2 : x0;
+  list.forEach(b => { b.t.p.set(x + b.w * s / 2, y, z); b.t.s = s; x += b.w * s + gap; });
+}
+const hideAll = () => allBlocks.forEach(b => { b.t.s = 0; b.look = null; });
+const tmpL = new V3();
+function stepBlocks(dt, t) {
+  for (const b of allBlocks) {
+    const g = b.g, k = damp(dt, 7); const tp = tmpL.copy(b.t.p); tp.y += Math.sin(t * 2.2 + b.i) * b.bob * b.t.s;
+    g.position.lerp(tp, k); const s = lerp(g.scale.x, b.t.s, damp(dt, 9)); g.scale.setScalar(Math.max(s, 0.001)); g.visible = s > 0.02;
+    g.rotation.y += (b.t.ry - g.rotation.y) * k; g.rotation.z = Math.sin(t * 1.7 + b.i * 1.3) * 0.03;
+    for (const p of b.pupils) { let dx = 0, dy = 0; if (b.look) { const l = g.worldToLocal(b.look.clone()); dx = l.x - p.bx; dy = l.y - p.by; const d = Math.hypot(dx, dy) || 1; dx = dx / d * 0.07; dy = dy / d * 0.07; } else { dx = Math.sin(t * 0.8 + b.i) * 0.03; } p.m.position.x += (p.bx + dx - p.m.position.x) * 0.2; p.m.position.y += (p.by + dy - p.m.position.y) * 0.2; }
+  }
+}
+function popBlock(b, f = 1.35) { b.g.scale.setScalar(Math.max(b.g.scale.x, 0.01) * f); }
+
+/* ---------- 마스코트 (카메라 오른쪽 위) ---------- */
+const mascot = new THREE.Group(); camera.add(mascot); mascot.position.set(6.1, 2.55, -10); mascot.scale.setScalar(0.62);
+const head = new THREE.Group(); mascot.add(head);
+head.add(new THREE.Mesh(new THREE.SphereGeometry(0.85, 28, 22), mat(0xffffff, { roughness: 0.3 })));
+const faceM = mat(0x16345a, { roughness: 0.3 }); const face = new THREE.Mesh(new THREE.SphereGeometry(0.7, 24, 18), faceM); face.scale.set(1, 0.78, 0.55); face.position.set(0, 0.0, 0.5); head.add(face);
+const mEyes = []; for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), new THREE.MeshBasicMaterial({ color: 0x7ff0ff })); e.position.set(sx * 0.27, 0.08, 0.86); e.scale.z = 0.4; head.add(e); mEyes.push(e); }
+const mMouth = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 16, Math.PI), new THREE.MeshBasicMaterial({ color: 0x7ff0ff })); mMouth.rotation.z = Math.PI; mMouth.position.set(0, -0.12, 0.88); head.add(mMouth);
+const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), mat(0x888fa8)); ant.position.y = 1.05; head.add(ant);
+const antB = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), new THREE.MeshStandardMaterial({ color: 0xff6fa5, emissive: 0xff6fa5, emissiveIntensity: 0.8 })); antB.position.y = 1.36; head.add(antB);
+for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.16, 16), mat(0x5ec8ff)); ear.rotation.z = Math.PI / 2; ear.position.set(sx * 0.9, 0, 0); head.add(ear); }
+const bodyM = new THREE.Mesh(new RoundedBoxGeometry(1.1, 0.8, 0.8, 4, 0.2), mat(0x5ec8ff)); bodyM.position.y = -1.15; mascot.add(bodyM);
+let talking = false;
+function updMascot(t) { mascot.position.x = Math.min(6.1, 4.66 * camera.aspect * 0.8); mascot.position.y = 2.55 + Math.sin(t * 2) * 0.12; head.rotation.z = Math.sin(t * 1.3) * 0.08; head.rotation.y = Math.sin(t * 0.9) * 0.2;
+  const bl = (t % 3.2) > 3.08 ? 0.1 : 1; mEyes.forEach(e => e.scale.y = bl); mMouth.scale.y = talking ? 0.6 + Math.abs(Math.sin(t * 14)) * 1.2 : 1; antB.material.emissiveIntensity = 0.6 + Math.sin(t * 5) * 0.4; }
+
+/* ---------- 장면들 ---------- */
+const scenes = []; let cur = -1, st = 0, T = 0;
+const camGoal = { pos: new V3(0, 1, 12), look: new V3(0, 0, 0) }, camLook = new V3(0, 0, 0);
+const grp = () => { const g = new THREE.Group(); g.visible = false; scene.add(g); return g; };
+const subEl = $('sub'); let subTxt = ''; const setSub = s => { if (s !== subTxt) { subTxt = s; subEl.textContent = s; } };
+const gaze = (b, v) => { b.look = v; };
+
+// 0. 인트로: 다음 말 맞히기
+{
+  const g = grp(), names = [['ChatGPT', '#10a37f'], ['Gemini', '#4285f4'], ['Claude', '#d97757']].map(([n, c]) => { const s = textSprite(n, 0.95, { size: 80, bg: c, sw: 0 }); g.add(s); return s; });
+  const tip = textSprite('나는 아침에 우유를 ___', 0.8, { size: 70, color: '#3a2a5a', sw: 0 }); tip.position.set(0, 3.1, 0); g.add(tip);
+  scenes.push({
+    title: '🎯 AI는 "다음 말 맞히기" 선수예요!', text: '"나는 아침에 우유를 ___" 다음에는 무슨 말이 올까요? 맞아요, "마셨다"! 챗GPT, 제미나이, 클로드는 이렇게 다음에 올 말을 아~주 잘 맞히는 친구들이에요.',
+    adult: '대규모 언어모델(LLM)의 핵심 = 다음 토큰 예측. 대부분의 최신 모델이 트랜스포머 구조를 사용해요.',
+    cam: [[0, 1.4, 13], [0, 0.6, 0]],
+    enter() { g.visible = true; hideAll(); layoutRow([blk[0], blk[1], blk[2], qBlk], 0, 0, 0.45, 1); [blk[3]].forEach(b => b.t.s = 0); },
+    update(s, dt) { qBlk.t.p.y = Math.abs(Math.sin(s * 3)) * 0.55; qBlk.t.ry = Math.sin(s * 2) * 0.25; gaze(blk[0], qBlk.g.position); gaze(blk[1], qBlk.g.position); gaze(blk[2], qBlk.g.position);
+      names.forEach((n, i) => { const a = s * 0.6 + i * TAU / 3; n.position.set(Math.cos(a) * 6.2, 2.2 + Math.sin(a * 2 + i) * 0.5, Math.sin(a) * 2.2); }); if (Math.random() < 0.05) burst(new V3(rnd(-4, 4), rnd(0, 3), 0), PAL, 4, 2); },
+    exit() { g.visible = false; },
+  });
+}
+// 1. 토큰
+{
+  const g = grp(); const list = blk.slice(0, 4); let packedW = list.reduce((a, b) => a + b.w, 0);
+  const plank = new THREE.Group(); plank.add(new THREE.Mesh(new RoundedBoxGeometry(packedW, 1.5, 0.7, 5, 0.25), mat(0xffe9a8))); const pl = textMesh('나는 아침에 우유를 마셨다', 0.78, { size: 100, color: '#3a2a5a', sw: 0 }); pl.position.z = 0.37; plank.add(pl); g.add(plank);
+  const sc = textSprite('✂️', 1.6, { size: 120, sw: 0 }); g.add(sc); const tags = list.map((b, i) => { const t = textSprite(`토큰 ${i + 1}`, 0.6, { size: 64, bg: '#fff', color: '#3a2a5a', sw: 0 }); t.visible = false; g.add(t); return t; });
+  let chopped = false;
+  scenes.push({
+    title: '🧩 1단계: 말을 블록으로 쪼개요', text: '컴퓨터는 긴 문장을 한 번에 읽지 못해요. 그래서 레고 블록처럼 작게 싹둑싹둑 잘라요. 이 작은 조각을 "토큰"이라고 불러요.',
+    adult: '토큰화(Tokenization): 문장을 단어/글자 조각(토큰) 단위로 나누어 각각 번호(ID)를 붙여요.',
+    cam: [[0, 1.6, 14], [0, 0.2, 0]],
+    enter() { g.visible = true; hideAll(); chopped = false; plank.visible = true; plank.scale.setScalar(1); layoutRow(list, 0, 0, 0, 1); list.forEach(b => { b.g.position.copy(b.t.p); b.g.scale.setScalar(0.001); b.t.s = 0; }); tags.forEach(t => t.visible = false); },
+    update(s) {
+      const x0 = -packedW / 2; sc.position.set(lerp(x0 - 1, x0 + packedW + 1, clamp(s / 1.6, 0, 1)), 1.3 + Math.sin(s * 20) * 0.15, 1); sc.visible = s < 1.8; sc.material.rotation = Math.sin(s * 18) * 0.4;
+      if (s > 1.7 && !chopped) { chopped = true; plank.visible = false; list.forEach(b => { b.t.s = 1; b.g.scale.setScalar(1.2); }); burst(new V3(0, 0.5, 0.5), PAL, 40, 5); }
+      if (s > 2.1) { layoutRow(list, 0, 0, 0.6, 1); tags.forEach((t, i) => { t.visible = s > 2.8 + i * 0.25; t.position.set(list[i].t.p.x, -1.35, 0.3); }); }
+      list.forEach(b => gaze(b, null));
+    },
+    exit() { g.visible = false; },
+  });
+}
+// 2. 임베딩(숫자 지도)
+{
+  const g = grp(); const CL = [
+    { n: '🥛 마실 것', c: '#7fd0ff', p: [-5, 1, -1], w: [['우유', -5.1, 1.2, -0.8], ['물', -6.3, 0.2, 0.3], ['주스', -3.9, 0.1, 0.9], ['차', -5.6, 2.3, 0.7]] },
+    { n: '🐱 동물', c: '#ffb3c8', p: [5, 3, -2.5], w: [['고양이', 4.4, 3.4, -2.2], ['강아지', 6, 2.6, -2.9], ['토끼', 5.4, 4.2, -3.2]] },
+    { n: '🏃 하는 일', c: '#a6e89a', p: [0.5, -1.6, 3], w: [['마셨다', -0.3, -1.4, 3.1], ['먹었다', 1.2, -0.5, 3.6], ['달렸다', 1.9, -2.2, 2.4], ['잤다', -1.1, -2.4, 2]] },
+    { n: '🕒 때', c: '#ffe08a', p: [1, 4.4, -3], w: [['아침에', 0.6, 4.4, -2.7], ['저녁에', 2.3, 5.1, -3.3], ['밤에', -0.6, 5.2, -3.6]] },
+    { n: '🙂 사람', c: '#d3b8ff', p: [-1.6, 2.6, 1], w: [['나는', -1.7, 2.8, 1.1], ['너는', -0.2, 3.3, 0.6], ['엄마', -2.9, 3.4, 0.3]] },
+  ];
+  const posOf = {}; CL.forEach(c => { const hl = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 16), new THREE.MeshBasicMaterial({ color: c.c, transparent: true, opacity: 0.22, depthWrite: false })); hl.position.set(...c.p); g.add(hl);
+    const nm = textSprite(c.n, 0.8, { size: 70, color: '#3a2a5a', sw: 0, bg: c.c }); nm.position.set(c.p[0], c.p[1] - 2.7, c.p[2]); g.add(nm);
+    c.w.forEach(([w, x, y, z]) => { posOf[w] = new V3(x, y, z); const d = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), mat(c.c)); d.position.set(x, y, z); g.add(d); const l = textSprite(w, 0.5, { size: 60, color: '#3a2a5a', sw: 6, stroke: '#fff' }); l.position.set(x, y + 0.5, z); g.add(l); }); });
+  const mk = (a, b) => { const gm = new THREE.BufferGeometry().setFromPoints([posOf[a], posOf[b]]); const l = new THREE.Line(gm, new THREE.LineDashedMaterial({ color: 0xff6fa5, dashSize: 0.25, gapSize: 0.15 })); l.computeLineDistances(); g.add(l); return l; };
+  mk('우유', '주스'); mk('우유', '물'); mk('고양이', '강아지');
+  const tags = [[blk[2], '우유'], [blk[3], '마셨다'], [blk[1], '아침에'], [blk[0], '나는']].map(([b, w]) => { const p = posOf[w]; const s = textSprite(`(${(p.x / 6).toFixed(1)}, ${(p.y / 6).toFixed(1)}, ${(p.z / 6).toFixed(1)})`, 0.5, { size: 56, color: '#fff', bg: '#ff6fa5', sw: 0 }); g.add(s); return { b, w, s }; });
+  scenes.push({
+    title: '🗺️ 2단계: 말을 "숫자 지도"에 올려요', text: '컴퓨터는 글자를 몰라요. 숫자만 알아요! 그래서 뜻이 비슷한 말끼리 가까이 사는 마법 지도에 말을 올려놔요. 우유 옆에는 주스와 물이 살아요 🥛',
+    adult: '임베딩(Embedding): 토큰을 수백~수천 차원의 숫자 벡터로 바꿔요. 뜻이 비슷하면 벡터 거리가 가까워요. (그림은 3차원으로 줄인 모습)',
+    cam: [[0, 4, 16], [0, 1.6, 0]], sway: 0.22,
+    enter() { g.visible = true; hideAll(); },
+    update(s) { tags.forEach(({ b, w, s: sp }) => { const p = posOf[w]; b.t.p.set(p.x, p.y, p.z + 0.2); b.t.s = 0.5 * easeOutBack((s - 0.3) / 0.8); b.t.ry = 0; b.bob = 0.02; sp.position.set(p.x, p.y - 0.85, p.z + 0.3); sp.visible = s > 1.8; gaze(b, null); });
+      if (Math.floor(s * 2) % 2 === 0 && Math.random() < 0.03) burst(posOf['우유'], '#7fd0ff', 3, 1.5, { size: 0.7 }); },
+    exit() { g.visible = false; blk.forEach(b => b.bob = 0.05); },
+  });
+}
+// 3. 어텐션
+{
+  const g = grp(), list = blk.slice(0, 4);
+  const HEADS = [{ c: 0xff5a8a, n: '눈 1번 👀', q: '"뭘 마셨지?" → 우유를!', w: [0.1, 0.2, 0.7] }, { c: 0x3a9bff, n: '눈 2번 👀', q: '"누가 마셨지?" → 나는!', w: [0.7, 0.1, 0.2] }, { c: 0x2fc46a, n: '눈 3번 👀', q: '"언제 마셨지?" → 아침에!', w: [0.15, 0.7, 0.15] }];
+  const arcs = [], DUR = 3.8;
+  const build = () => { layoutRow(list, 0, 0, 0.9, 0.95); list.forEach(b => { b.g.position.copy(b.t.p); });
+    HEADS.forEach((h, hi) => { h.arcs = []; h.w.forEach((w, j) => { const a = new V3(list[3].t.p.x, 0.9, 0), b = new V3(list[j].t.p.x, 0.9, 0), c = a.clone().lerp(b, 0.5); c.y += 1.4 + Math.abs(a.x - b.x) * 0.28;
+      const crv = new THREE.QuadraticBezierCurve3(a, c, b), geo = new THREE.TubeGeometry(crv, 48, 0.04 + w * 0.2, 10, false), m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: h.c, emissive: h.c, emissiveIntensity: 0.35, roughness: 0.4 }));
+      const lbl = textSprite(Math.round(w * 100) + '%', 0.75, { size: 80, color: '#fff', bg: '#' + h.c.toString(16).padStart(6, '0'), sw: 0 }); lbl.position.copy(crv.getPoint(0.5)).y += 0.5; const dots = []; for (let k = 0; k < 4; k++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.1 + w * 0.18, 10, 8), new THREE.MeshBasicMaterial({ color: h.c })); g.add(d); dots.push(d); }
+      g.add(m, lbl); h.arcs.push({ m, geo, lbl, crv, w, dots }); }); }); };
+  let built = false;
+  scenes.push({
+    title: '👀 3단계: 서로 쳐다봐요! "집중(어텐션)"', text: '"마셨다"는 누가, 뭘, 언제 마셨는지 알고 싶어서 친구들을 쳐다봐요. 중요한 친구는 더 오래, 더 굵은 눈길로 봐요. 눈이 여러 개라서 한꺼번에 여러 가지를 살필 수 있어요!',
+    adult: '셀프 어텐션(Q·K·V)과 멀티헤드: 문맥 속 단어들이 서로 얼마나 관련 있는지 가중치(%)를 계산하고, 중요한 정보를 더 많이 섞어요.',
+    cam: [[0, 3.2, 14], [0, 1.1, 0]],
+    enter() { g.visible = true; hideAll(); if (!built) { built = true; build(); } layoutRow(list, 0, 0, 0.9, 0.95); },
+    update(s) {
+      const hi = Math.floor(s / DUR) % 3, h = HEADS[hi], ls = s % DUR, prog = easeInOut(ls / 0.9);
+      HEADS.forEach((hh, k) => hh.arcs.forEach(a => { const on = k === hi; a.m.visible = on; a.lbl.visible = on && ls > 0.7; a.dots.forEach(d => d.visible = on && ls > 0.5);
+        if (on) { a.geo.setDrawRange(0, Math.floor(a.geo.index.count * prog / 3) * 3); a.lbl.scale.setScalar(1 + (a.w > 0.5 ? Math.sin(s * 6) * 0.06 : 0)); a.dots.forEach((d, q) => { const t = (s * (0.45 + a.w * 0.5) + q / 4) % 1; d.position.copy(a.crv.getPoint(1 - t)); }); } }));
+      list.slice(0, 3).forEach(b => gaze(b, list[3].g.position)); const top = h.w.indexOf(Math.max(...h.w)); gaze(list[3], list[top].g.position); list[3].t.p.y = Math.abs(Math.sin(s * 4)) * 0.15;
+      if (ls > 0.8 && ls < 0.85) burst(list[top].g.position, '#' + h.c.toString(16).padStart(6, '0'), 14, 3);
+      setSub(`${h.n}  ${h.q}`); },
+    exit() { g.visible = false; setSub(''); },
+  });
+}
+// 4. 층 (트랜스포머 타워)
+{
+  const g = grp(), list = blk.slice(0, 4), FL = 6, floors = [];
+  for (let i = 0; i < FL; i++) { const m = new THREE.Mesh(new RoundedBoxGeometry(8.6, 0.5, 3.4, 4, 0.18), new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(0.55 + i * 0.07, 0.75, 0.72), transparent: true, opacity: 0.45, roughness: 0.2, emissive: new THREE.Color().setHSL(0.55 + i * 0.07, 0.8, 0.6), emissiveIntensity: 0.1 })); m.position.y = i * 1.35; g.add(m); floors.push(m);
+    const t = textSprite(`${i + 1}층 · 집중 👀 + 생각 💭`, 0.5, { size: 56, color: '#3a2a5a', sw: 6, stroke: '#fff' }); t.position.set(5.7, i * 1.35 + 0.15, 0); g.add(t); }
+  const top = textSprite('🏢 트랜스포머 타워', 0.95, { size: 80, bg: '#ffd93d', color: '#3a2a5a', sw: 0 }); top.position.set(0, FL * 1.35 + 0.5, 0); g.add(top);
+  scenes.push({
+    title: '🏢 4단계: 생각하는 층을 높이높이 쌓아요', text: '"집중해서 보고, 곰곰이 생각하기" 이 한 층을 여러 번 쌓은 건물이 바로 트랜스포머예요! 말들이 한 층 한 층 올라갈수록 문장의 뜻을 점점 깊이 이해해요.',
+    adult: '트랜스포머 블록(어텐션 + 피드포워드 신경망)을 수십~백 개 층 쌓아요. 층을 지날수록 문맥이 반영된 더 풍부한 표현이 돼요.',
+    cam: [[7, 5.5, 18], [0, 3.6, 0]],
+    enter() { g.visible = true; hideAll(); },
+    update(s) { const cyc = 9, c = s % cyc, y = -0.6 + c * 0.95; list.forEach((b, i) => { b.t.p.set((i - 1.5) * 1.7, y + Math.sin(i + s * 3) * 0.12, 0.2); b.t.s = c > cyc - 0.8 ? 0 : 0.5 * easeOutBack(c / 0.5); const f = clamp(y / (FL * 1.35), 0, 1); b.m.emissive.set(b.m.color).multiplyScalar(f * 0.7); gaze(b, camera.position); });
+      floors.forEach((f, i) => { const d = Math.abs(y - i * 1.35); f.material.emissiveIntensity = 0.1 + Math.max(0, 1 - d / 1.1) * 1.0; if (d < 0.1 && Math.random() < 0.3) burst(new V3(0, i * 1.35, 1.7), ['#ffd93d', '#ffffff'], 3, 2, { size: 0.6 }); });
+      if (c > cyc - 0.9 && c < cyc - 0.85) burst(new V3(0, FL * 1.35, 0), PAL, 30, 5); },
+    exit() { g.visible = false; list.forEach(b => b.m.emissive.set(0)); },
+  });
+}
+// 5. 다음 말 맞히기
+{
+  const g = grp(), C = [['마셨다', 0.72], ['먹었다', 0.15], ['던졌다', 0.07], ['잤다', 0.04], ['춤췄다', 0.02]], bars = [];
+  C.forEach(([w, v], i) => { const x = (i - 2) * 2.7, m = new THREE.Mesh(new RoundedBoxGeometry(1.5, 1, 1.5, 4, 0.25), mat(i === 0 ? '#ffb347' : '#9fdcff')); m.position.x = x; g.add(m);
+    const lb = textSprite(w, 0.7, { size: 72, color: '#3a2a5a', sw: 6, stroke: '#fff' }); lb.position.set(x, -0.85, 0.8); g.add(lb); const pc = textSprite(Math.round(v * 100) + '%', 0.8, { size: 76, bg: i === 0 ? '#ff6fa5' : '#fff', color: i === 0 ? '#fff' : '#3a2a5a', sw: 0 }); g.add(pc); bars.push({ m, pc, v, x }); });
+  let landed = false;
+  scenes.push({
+    title: '🎯 5단계: 다음 말에 점수를 주고 골라요', text: '맨 위에서 "다음에 올 말" 후보들에게 점수를 줘요. "마셨다"가 72점으로 1등! 그래서 "마셨다"를 골라서 문장 끝에 쏙 붙여요. 이상한 "던졌다"는 점수가 아주 낮아요.',
+    adult: '출력층에서 소프트맥스(Softmax)로 모든 다음 토큰의 확률분포를 만들고, 그중 하나를 선택(그리디/샘플링)해요.',
+    cam: [[0, 3.6, 15], [0, 2.4, 0]],
+    enter() { g.visible = true; hideAll(); landed = false; layoutRow([blk[0], blk[1], blk[2], qBlk], 5.3, -1, 0.3, 0.7); blk[3].g.position.set(-5.4, 1, 0); },
+    update(s) {
+      bars.forEach((b, i) => { const e = easeOutBack((s - 0.7 - i * 0.3) / 0.9), h = Math.max(0.05, b.v * 4.6 * e); b.m.scale.y = h; b.m.position.y = h / 2; b.pc.position.set(b.x, h + 0.7, 0.2); b.pc.visible = s > 0.9 + i * 0.3; if (i === 0 && s > 3.6) { b.m.material.emissive.set(0xffb347); b.m.material.emissiveIntensity = 0.5 + Math.sin(s * 8) * 0.3; } });
+      if (s > 4.6 && !landed) { landed = true; blk[3].g.position.set(bars[0].x, bars[0].m.scale.y + 0.8, 0); burst(new V3(bars[0].x, 3, 0), ['#ffd93d', '#ff6fa5', '#ffffff'], 40, 5); }
+      if (landed) { layoutRow([blk[0], blk[1], blk[2], blk[3]], 5.3, -1, 0.3, 0.7); qBlk.t.s = 0; }
+      else { blk[3].t.s = 0; qBlk.t.p.y = 5.3 + Math.abs(Math.sin(s * 3)) * 0.3; }
+      blk.slice(0, 3).forEach(b => gaze(b, null)); gaze(blk[3], null); },
+    exit() { g.visible = false; },
+  });
+}
+// 6. 반복
+{
+  const g = grp(), ring = new THREE.Group(); const torus = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.16, 12, 40, Math.PI * 1.6), mat(0xff6fa5, { emissive: 0xff6fa5, emissiveIntensity: 0.3 })); ring.add(torus);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 16), mat(0xff6fa5)); cone.position.set(Math.cos(Math.PI * 1.6) * 1.6, Math.sin(Math.PI * 1.6) * 1.6, 0); cone.rotation.z = Math.PI * 1.6 + Math.PI; ring.add(cone); g.add(ring);
+  const again = textSprite('다시! 다시! 🔁', 0.95, { size: 80, bg: '#fff', color: '#d6336c', sw: 0 }); g.add(again);
+  const seq = blk.slice(0, 7); let shown = 4, lastShown = 4;
+  scenes.push({
+    title: '🔁 6단계: 또 맞히고, 또 맞히고!', text: '고른 말을 문장 끝에 붙이고, 처음부터 다시 "다음 말 맞히기"! 이걸 쉬지 않고 반복하면 긴 이야기도, 멋진 대답도 한 마디씩 술술 만들어져요.',
+    adult: '자기회귀(Autoregressive) 생성: 방금 만든 토큰을 입력에 이어 붙여 다음 토큰을 계속 예측해요. 그래서 글이 한 단어씩 나타나요.',
+    cam: [[0, 3, 20], [0, 1.2, 0]],
+    enter() { g.visible = true; hideAll(); shown = 4; lastShown = 4; },
+    update(s) { const cyc = 2.4, n = 4 + Math.min(3, Math.floor(s / cyc)); if (n !== lastShown) { lastShown = n; popBlock(seq[n - 1], 1.5); burst(seq[n - 1].g.position, PAL, 24, 4); }
+      let x = -9.3; seq.forEach((b, i) => { if (i < n) { b.t.p.set(x + b.w * 0.75 / 2, 0, 0); b.t.s = 0.75; x += b.w * 0.75 + 0.3; gaze(b, null); } else b.t.s = 0; });
+      if (n < 7) { qBlk.t.p.set(x + qBlk.w * 0.75 / 2, Math.abs(Math.sin(s * 4)) * 0.4, 0); qBlk.t.s = 0.75; } else qBlk.t.s = 0;
+      const fx = n < 7 ? qBlk.t.p.x : 7; ring.position.set(fx, 3.6, 0); ring.rotation.z = -s * 2.2; again.position.set(fx, 5.6, 0); again.scale.x = again.userData.w * (1 + Math.sin(s * 6) * 0.04);
+      camGoal.pos.x = clamp(fx * 0.35, -3, 3); camGoal.look.x = clamp(fx * 0.35, -3, 3);
+      if (s > cyc * 3 + 5) { setSub('이렇게 반복해서 긴 이야기가 완성돼요 📖'); } else setSub(''); },
+    exit() { g.visible = false; setSub(''); },
+  });
+}
+// 7. 학습
+{
+  const g = grp(), books = [], BC = ['#ff7a8a', '#ffb347', '#5ec8ff', '#7be07a', '#b58cff', '#ffd93d'];
+  for (let i = 0; i < 36; i++) { const b = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.28, 1.1, 3, 0.07), mat(BC[i % 6])); b.userData = { x: rnd(-8.6, -4.4), z: rnd(-1, 1), off: rnd(0, 4), ry: rnd(0, TAU) }; g.add(b); books.push(b); }
+  const lib = textSprite('📚 책 수억 권!', 0.95, { size: 80, bg: '#ffe9a8', color: '#3a2a5a', sw: 0 }); lib.position.set(-6.5, 6.4, 0); g.add(lib);
+  const quiz = textSprite('나는 아침에 우유를 ___', 0.85, { size: 76, bg: '#fff', color: '#3a2a5a', sw: 0 }); quiz.position.set(4.2, 5.6, 0); g.add(quiz);
+  const ans = textSprite('정답: 마셨다 ✔', 0.6, { size: 64, bg: '#d3f9d8', color: '#2b8a3e', sw: 0 }); ans.position.set(4.2, 4.7, 0); g.add(ans);
+  const W3 = ['마셨다', '던졌다', '춤췄다'], bars = W3.map((w, i) => { const x = 1.6 + i * 2.6, m = new THREE.Mesh(new RoundedBoxGeometry(1.4, 1, 1.4, 4, 0.22), mat(i === 0 ? '#7be07a' : '#ff9ab0')); m.position.x = x; g.add(m); const l = textSprite(w, 0.65, { size: 68, color: '#3a2a5a', sw: 6, stroke: '#fff' }); l.position.set(x, -0.8, 0.8); g.add(l); return { m, x, v: 0 }; });
+  const fb = textSprite('✅', 1.2, { size: 110, sw: 0 }), fbX = textSprite('❌', 1.2, { size: 110, sw: 0 }); g.add(fb, fbX);
+  let lastTop = -1;
+  scenes.push({
+    title: '📚 7단계: 어떻게 이렇게 똑똑해졌을까?', text: '처음엔 엉터리로 대답해요. 그런데 책을 엄청 많이 읽고, 틀리면 "아니야, 정답은 마셨다야!" 하고 고쳐주는 연습을 수십억 번 해요. 그러면 점점 정답을 척척 맞히는 똑똑이가 돼요!',
+    adult: '사전학습: 다음 토큰 예측의 오차(손실)를 줄이도록 역전파로 수십억~수조 개의 파라미터를 조금씩 조정해요. 이후 사람의 피드백 등으로 대화를 다듬기도 해요.',
+    cam: [[0, 3, 18], [-0.5, 2.4, 0]],
+    enter() { g.visible = true; hideAll(); lastTop = -1; },
+    update(s) {
+      books.forEach(b => { const u = b.userData, c = ((s * 0.55 + u.off) % 4) / 4, y = lerp(12, 0.3 + (b.id % 5) * 0.05, easeInOut(c * 1.1)); b.position.set(u.x, y, u.z); b.rotation.set(0, u.ry + s * 0.5, c * 2.2); b.scale.setScalar(clamp(1.6 - c * 1.2, 0.4, 1)); });
+      const cyc = 12, c = s % cyc, p = easeInOut(c / 10), wob = Math.sin(s * 5) * 0.03 * (1 - p), v = [lerp(0.18, 0.95, p) + wob, lerp(0.5, 0.03, p) - wob, lerp(0.32, 0.02, p) + wob];
+      bars.forEach((b, i) => { const h = Math.max(0.05, v[i] * 4); b.m.scale.y = h; b.m.position.y = h / 2; });
+      const top = v.indexOf(Math.max(...v)); fb.visible = top === 0; fbX.visible = top !== 0; const t = top === 0 ? fb : fbX; t.position.set(bars[top].x, bars[top].m.scale.y + 1.1, 0.2); t.scale.setScalar(1.2 * (1 + Math.sin(s * 8) * 0.06));
+      if (top !== lastTop) { lastTop = top; if (top === 0) burst(new V3(bars[0].x, 4.6, 0), ['#ffd93d', '#7be07a', '#ffffff'], 40, 5); }
+      const n = Math.round(Math.pow(10, p * 10)); setSub(`연습한 횟수: ${n.toLocaleString()} 번  ${top === 0 ? '→ 이제 정답을 맞혀요! 🎉' : '→ 아직 틀려요 😵'}`); },
+    exit() { g.visible = false; setSub(''); },
+  });
+}
+// 8. 정리
+{
+  const g = grp(), STEP = [['🧩', '쪼개기', '#ff9ab0'], ['🗺️', '숫자 지도', '#ffd27a'], ['👀', '집중하기', '#8fd3ff'], ['🏢', '생각 층 쌓기', '#a6e89a'], ['🎯', '맞히기', '#c9b3ff']], tiles = [];
+  STEP.forEach(([e, n, c], i) => { const t = new THREE.Group(), body = new THREE.Mesh(new RoundedBoxGeometry(2.3, 2.9, 0.7, 5, 0.3), mat(c)); t.add(body); const em = textSprite(e, 1.2, { size: 110, sw: 0 }); em.position.set(0, 0.5, 0.5); t.add(em); const nm = textSprite(n, 0.6, { size: 66, color: '#3a2a5a', sw: 6, stroke: '#fff' }); nm.position.set(0, -0.8, 0.5); t.add(nm);
+    const nb = textSprite(String(i + 1), 0.7, { size: 70, bg: '#fff', color: '#d6336c', sw: 0 }); nb.position.set(-0.85, 1.35, 0.55); t.add(nb); t.position.set((i - 2) * 3.1, 0, 0); g.add(t); tiles.push(t); });
+  const loop = textSprite('🔁 이걸 계속 반복!', 0.95, { size: 80, bg: '#ff6fa5', color: '#fff', sw: 0 }); loop.position.set(0, 2.9, 0); g.add(loop);
+  const names = textSprite('ChatGPT · Gemini · Claude 모두 이렇게 말해요!', 0.8, { size: 70, bg: '#fff', color: '#3a2a5a', sw: 0 }); names.position.set(0, -2.7, 0); g.add(names);
+  scenes.push({
+    title: '🎉 정리! AI가 말하는 방법', text: '① 말을 블록으로 쪼개고 ② 숫자 지도에 올리고 ③ 서로 집중해서 보고 ④ 생각하는 층을 지나서 ⑤ 다음 말을 맞혀요. 그리고 이걸 계속 반복해요. 참 쉽죠?',
+    adult: 'ChatGPT·Gemini·Claude 등 현재의 대화형 AI는 모두 트랜스포머 계열이에요. (세부 구조·학습 방법은 모델마다 달라요. 이 애니메이션은 핵심 원리를 아주 단순화한 거예요.)',
+    cam: [[0, 1.6, 15], [0, 0.4, 0]],
+    enter() { g.visible = true; hideAll(); burst(new V3(0, 3, 0), PAL, 60, 6); },
+    update(s, dt) { tiles.forEach((t, i) => { const e = easeOutBack((s - i * 0.25) / 0.7); t.scale.setScalar(Math.max(0.001, e)); t.position.y = Math.sin(s * 2 + i) * 0.18; t.rotation.y = Math.sin(s * 1.2 + i) * 0.15; });
+      if (Math.random() < 0.5) burst(new V3(rnd(-9, 9), 8, rnd(-2, 2)), PAL, 1, 0.5, { life: 2, size: 1.2, v: new V3(0, -2, 0) }); },
+    exit() { g.visible = false; },
+  });
+}
+
+/* ---------- 진행 UI / 음성 ---------- */
+const dots = $('dots'); scenes.forEach((_, i) => { const d = document.createElement('i'); d.onclick = () => go(i, true); dots.appendChild(d); });
+let voiceOn = true, autoOn = false, autoT = 0;
+const clean = s => s.replace(/[\u{1F000}-\u{1FAFF}☀-➿️]/gu, '').replace(/[()]/g, ' ');
+let voice = null;
+function speak(text) {
+  talking = false; if (!('speechSynthesis' in window)) return; speechSynthesis.cancel(); if (!voiceOn) return;
+  const u = new SpeechSynthesisUtterance(clean(text)); u.lang = 'ko-KR'; if (!voice) voice = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('ko')); if (voice) u.voice = voice;
+  u.pitch = 1.35; u.rate = 0.95; u.onstart = () => talking = true; u.onend = u.onerror = () => talking = false; speechSynthesis.speak(u);
+}
+function go(i, user) {
+  i = clamp(i, 0, scenes.length - 1); if (cur >= 0) scenes[cur].exit(); cur = i; st = 0; const sc = scenes[i]; setSub('');
+  $('stepTag').textContent = `${i + 1} / ${scenes.length}`; $('cTitle').textContent = sc.title; $('cText').textContent = sc.text; $('adult').textContent = '👨‍🏫 어른용 설명: ' + sc.adult;
+  [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i)); camGoal.pos.set(...sc.cam[0]); camGoal.look.set(...sc.cam[1]); sc.enter(); speak(sc.title + '. ' + sc.text);
+  autoT = Math.max(9, sc.text.length * 0.2); if (user) { }
+}
+$('prev').onclick = () => go(cur - 1, true); $('next').onclick = () => go(cur + 1, true);
+$('auto').onclick = () => { autoOn = !autoOn; $('auto').classList.toggle('on', autoOn); autoT = Math.max(9, scenes[cur].text.length * 0.2); st = 0; };
+$('voice').onclick = () => { voiceOn = !voiceOn; $('voice').classList.toggle('on', voiceOn); $('voice').textContent = voiceOn ? '🔊 읽어주기' : '🔇 소리 끔'; if (voiceOn) speak(scenes[cur].title + '. ' + scenes[cur].text); else speechSynthesis.cancel(); };
+addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1, true); } else if (e.key === 'ArrowLeft') go(cur - 1, true); });
+$('go').onclick = () => { $('intro').classList.add('hidden'); go(0); };
+if ('speechSynthesis' in window) speechSynthesis.getVoices();
+
+/* ---------- 메인 루프 ---------- */
+go(0); speechSynthesis && speechSynthesis.cancel(); $('intro').classList.remove('hidden');
+const clock = new THREE.Clock(); const sw = new V3();
+const frameFn = (dtIn) => {
+  const dt = dtIn ?? Math.min(clock.getDelta(), 0.05); T += dt; st += dt;
+  const sc = scenes[cur]; if (sc) sc.update(st, dt);
+  if (autoOn && !$('intro').classList.contains('hidden') === false && st > autoT) { if (cur < scenes.length - 1) go(cur + 1); else autoOn = false, $('auto').classList.remove('on'); }
+  stepBlocks(dt, T); updSparks(dt); updBubbles(dt, T); updMascot(T);
+  const asp = camera.aspect, ds = clamp(1.55 / asp, 1, 2.2), look = camGoal.look, sway = sc && sc.sway ? sc.sway : 0.06, a = T * (sc && sc.sway ? 0.35 : 0.4);
+  sw.set(camGoal.pos.x - look.x, camGoal.pos.y - look.y, camGoal.pos.z - look.z).multiplyScalar(ds);
+  const th = (sc && sc.sway ? Math.sin(a) * 0.8 : Math.sin(a) * 0.05), oy = Math.sin(a * 0.7) * 0.2, cs = Math.cos(th), sn = Math.sin(th);
+  camera.position.lerp(new V3(look.x + sw.x * cs + sw.z * sn, look.y + sw.y + oy, look.z - sw.x * sn + sw.z * cs), damp(dt, 2.2));
+  camLook.lerp(look, damp(dt, 3)); camera.lookAt(camLook);
+  renderer.render(scene, camera);
+};
+renderer.setAnimationLoop(() => frameFn());
+window.__step = (sec) => { for (let i = 0; i < sec * 20; i++) frameFn(0.05); };
+window.__go = go; window.__scenes = scenes; window.__T = () => T;
+</script>
+</body>
+</html>

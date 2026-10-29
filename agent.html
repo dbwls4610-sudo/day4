@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>제주 여행 에이전트</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--main:#1B5E8C;--point:#F28C28;--bg:#F5F9FC;--ink:#1F2A44;--sub:#5B6680;--line:#E2E7F0;
+ --find:#1F6FC5;--judge:#8A4FD0;--act:#2F8F4E;--findBg:#E6F0FB;--judgeBg:#F1E9FB;--actBg:#E5F4EA;--warn:#C77700}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;background:#DCE3EE;color:var(--ink);font-size:17px}
+.app{max-width:430px;height:100dvh;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,0,0,.12)}
+header{background:var(--main);color:#fff;padding:12px 16px}
+header h1{font-size:20px;margin:0}
+header small{display:block;font-size:14px;color:#CFE0EE;margin-top:2px}
+#log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:90%;padding:11px 14px;border-radius:18px;line-height:1.5;word-break:keep-all;overflow-wrap:anywhere}
+.ai{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:6px;width:90%}
+.me{align-self:flex-end;background:var(--point);color:#fff;border-bottom-right-radius:6px}
+.mode{display:inline-block;font-size:13px;font-weight:700;color:var(--warn);background:#FFF3DE;border-radius:99px;padding:2px 10px;margin-bottom:6px}
+.judge{font-weight:700;color:var(--judge);margin:4px 0 8px}
+.wx{font-size:14px;color:var(--find);background:var(--findBg);border-radius:8px;padding:5px 9px;margin-bottom:6px}
+.map{height:200px;border-radius:12px;border:1px solid var(--line);margin:6px 0 4px}
+.mapnote{font-size:12px;color:var(--sub)}
+.card{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:9px 10px;margin-top:8px}
+.card i{flex:none;width:28px;height:28px;border-radius:50%;background:var(--point);color:#fff;font-style:normal;font-weight:800;display:flex;align-items:center;justify-content:center}
+.bd{font-size:12px;font-weight:700;border-radius:99px;padding:1px 8px;margin-left:4px}
+.in{background:var(--findBg);color:var(--find)}.out{background:var(--actBg);color:var(--act)}.chk{background:#FFF3DE;color:var(--warn)}
+.why{font-size:14px;color:var(--sub)}
+details{margin-top:10px;border-top:1px dashed var(--line);padding-top:6px}
+summary{cursor:pointer;font-size:14px;color:var(--sub);font-weight:700}
+.steps{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.steps div{border-radius:8px;padding:6px 9px;font-size:14px}
+.f{background:var(--findBg);color:var(--find)}.j{background:var(--judgeBg);color:var(--judge)}.a{background:var(--actBg);color:var(--act)}
+.tip{font-size:14px;color:var(--sub);margin-top:8px}
+.chips{display:flex;gap:8px;padding:8px 12px 4px;overflow-x:auto}
+.chips button{flex:none;border:1.5px solid var(--point);background:#fff;color:var(--point);border-radius:999px;padding:9px 14px;font-size:15px;font-weight:700;cursor:pointer;min-height:44px}
+form{display:flex;gap:8px;padding:8px 12px 6px}
+input{flex:1;font-size:17px;padding:12px 14px;border:1.5px solid #C5CEDD;border-radius:14px;min-width:0}
+form button{border:0;background:var(--main);color:#fff;font-size:16px;font-weight:700;border-radius:14px;padding:0 18px;min-height:48px;cursor:pointer}
+.note{font-size:13px;color:var(--sub);text-align:center;padding:0 12px 10px}
+#conbox{margin:0 12px 10px;font-size:14px}
+#con{margin:6px 0 0;max-height:160px;overflow:auto;background:#1F2A44;color:#CFE0EE;border-radius:8px;padding:8px;font-size:12px;white-space:pre-wrap;word-break:break-all}
+#con .error{color:#FF9A9A}
+#conclear{font-size:13px;margin-top:4px}
+</style></head><body>
+<div class="app">
+ <header><h1>제주 여행 에이전트</h1><small>관광지를 찾고 · 날씨를 보고 · 스스로 판단해 추천해요</small></header>
+ <div id="log" aria-live="polite"></div>
+ <div class="chips" id="chips"></div>
+ <form id="f"><input id="q" placeholder="언제, 어디서 놀고 싶어요?" autocomplete="off" maxlength="300"><button>보내기</button></form>
+ <div class="note">도구: find_spots · get_weather(Open-Meteo) · 핀 위치는 지역 근처 근사값 · 방문 전 확인하세요</div>
+ <details id="conbox"><summary>콘솔 로그 보기 (F12 Console 과 같은 내용)</summary>
+  <button type="button" id="conclear">지우기</button>
+  <pre id="con"></pre>
+ </details>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// console.log / error 를 F12 콘솔과 화면 아래 "콘솔 로그" 패널에 함께 보여준다 (학생 설명용)
+const conEl = document.getElementById('con')
+;['log', 'warn', 'error'].forEach(kind => {
+  const original = console[kind]
+  console[kind] = (...args) => {
+    original.apply(console, args)
+    const text = args.map(a => typeof a === 'string' ? a : JSON.stringify(a, null, 1)).join(' ')
+    const line = document.createElement('div')
+    line.className = kind
+    line.textContent = '> ' + (text.length > 1500 ? text.slice(0, 1500) + ' …(길어서 생략, 전체는 F12 Console)' : text)
+    conEl.appendChild(line)
+    conEl.scrollTop = conEl.scrollHeight
+    document.getElementById('conbox').open = true
+  }
+})
+window.addEventListener('error', e => console.error('에러:', e.message))
+window.addEventListener('unhandledrejection', e => console.error('에러:', String(e.reason)))
+document.getElementById('conclear').onclick = () => { conEl.textContent = '' }
+
+const log = document.getElementById('log'), q = document.getElementById('q')
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+function add(cls, html) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; log.appendChild(d); log.scrollTop = log.scrollHeight; return d }
+let mapN = 0
+
+function render(box, r) {
+  const id = 'map' + (++mapN)
+  let h = r.mode === 'ai' ? '' : '<span class="mode">' + (r.mode === 'practice' ? '연습 모드' : 'Gemini 오류') + '</span>'
+  if (r.error) h += '<div class="judge" style="color:#C0392B">' + esc(r.error) + '</div>'
+  if (r.judge) h += '<div class="judge">' + esc(r.judge) + '</div>'
+  if (r.weather && r.weather.ok) h += `<div class="wx">☁ ${esc(r.weather.area)} ${esc(r.weather.day)} · 강수확률 ${r.weather.rain_prob}% · 최고 ${r.weather.tmax}℃</div>`
+  if (r.places && r.places.length) {
+    h += '<div class="map" id="' + id + '"></div><div class="mapnote">핀 위치는 지역 근처 근사값 · 지도 © OpenStreetMap 기여자</div>'
+    h += r.places.map((p, i) => '<div class="card"><i>' + (i + 1) + '</i><div><b>' + esc(p.name) + '</b>' +
+      (p.inList ? '<span class="bd ' + (p.indoor ? 'in">실내' : 'out">야외') + '</span>' : '<span class="bd chk">목록에 없음 · 직접 확인 ⚠</span>') +
+      '<div class="why">' + esc(p.why) + '</div></div></div>').join('')
+  } else if (r.text) h += esc(r.text)
+  h += '<div class="tip">' + esc(r.tip || '') + '</div>'
+  h += '<details open><summary>생각 과정 보기</summary><div class="steps">' + (r.steps || []).map(s =>
+    '<div class="' + ({ find: 'f', judge: 'j', act: 'a' }[s.kind] || 'f') + '">' + ({ find: '도구', judge: '판단', act: '실행' }[s.kind] || '') + ' — ' + esc(s.text) + '</div>').join('') + '</div></details>'
+  // Gemini 서버가 준 원본 응답 — 가공 없이 그대로 (F12 콘솔에도 같은 내용이 찍힌다)
+  if (r.raw && r.raw.length) h += '<details><summary>Gemini 원본 응답 보기 (' + r.raw.length + '번 호출)</summary>' +
+    r.raw.map((x, i) => '<div class="mapnote">호출 ' + (i + 1) + ' · HTTP ' + x.status + '</div><pre style="font-size:12px;overflow:auto;max-height:240px;background:#F1F4F9;padding:8px;border-radius:8px">' +
+      esc(JSON.stringify(x.response, null, 2)) + '</pre>').join('') + '</details>'
+  box.innerHTML = h
+
+  const pins = (r.places || []).filter(p => p.lat)
+  const el = document.getElementById(id)
+  if (el && window.L && pins.length) {
+    const m = L.map(el, { zoomControl: false })
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m)
+    const ll = pins.map(p => [p.lat, p.lon])
+    pins.forEach((p, i) => L.marker([p.lat, p.lon]).addTo(m).bindTooltip((i + 1) + '. ' + esc(p.name)))
+    m.fitBounds(ll, { padding: [24, 24], maxZoom: 12 })
+  } else if (el) el.outerHTML = '<div class="mapnote">지도에 찍을 장소가 없어요</div>'
+  log.scrollTop = log.scrollHeight
+}
+
+async function send(text) {
+  text = text.trim(); if (!text) { q.focus(); return }
+  add('me', esc(text)); q.value = ''
+  const wait = add('ai', '생각하는 중…')
+  try {
+    console.log('1. 서버(/api/agent)로 보낼 질문:', text)
+    const res = await fetch('/api/agent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: text }) })
+    console.log('2. /api/agent HTTP 상태:', res.status, res.statusText)
+    const body = await res.text()                                     // 먼저 글자 그대로 받아서
+    console.log('3. /api/agent 응답 원문:', body)
+    let data; try { data = JSON.parse(body) } catch (e) { throw new Error('JSON 이 아닌 응답이 왔어요 (HTTP ' + res.status + '): ' + body.slice(0, 200)) }
+    console.log('4. 서버 응답 객체:', data)
+    ;(data.raw || []).forEach((x, i) => console.log('5. Gemini 원본 응답 #' + (i + 1) + ' (HTTP ' + x.status + '):', x.response))
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (data.error || ''))
+    render(wait, data)
+  } catch (e) {
+    console.error('요청 실패:', e)
+    wait.textContent = '실패: ' + e.message + ' — F12 → Console 에서 자세한 내용을 확인하세요.'
+  }
+}
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); send(q.value) })
+;['내일 동쪽에서 반나절', '비 오는 날 제주시', '서귀포 바다 산책'].forEach(s => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.onclick = () => send(s); document.getElementById('chips').appendChild(b)
+})
+add('ai', '안녕하세요! 언제, 어디서 놀고 싶은지 알려 주세요. 날씨와 장소를 찾아보고 추천해 드릴게요.')
+</script>
+</body></html>

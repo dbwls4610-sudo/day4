@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jeju Island</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3dd; }
+  canvas { display: block; }
+  #title {
+    position: fixed; left: 20px; top: 16px; color: #14424a;
+    font: 700 22px system-ui, sans-serif; text-shadow: 0 1px 0 #ffffff88;
+  }
+  #title small { display: block; font-weight: 400; font-size: 13px; margin-top: 4px; opacity: .8; }
+  #ui {
+    position: fixed; left: 20px; bottom: 16px; color: #14424a;
+    font: 13px/1.7 system-ui, sans-serif;
+  }
+  #ui a {
+    display: inline-block; background: #14424acc; color: #fff; text-decoration: none;
+    padding: 6px 12px; border-radius: 6px; margin-right: 6px;
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="title">제주도 · Jeju Island<small>한라산 · 돌하르방 · 감귤 과수원 · 유채꽃 · 풍력발전기 · 등대</small></div>
+<div id="ui"><a href="index.html">← 처음으로</a><a href="space.html">🚀 우주</a><br>드래그: 회전 · 휠: 확대/축소 · 우클릭 드래그: 이동</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const SKY = 0xbfe3dd;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.fog = new THREE.Fog(SKY, 45, 110);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 200);
+camera.position.set(22, 14, 26);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.5, 0);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.minDistance = 8; controls.maxDistance = 70;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+const sun = new THREE.DirectionalLight(0xfff2d8, 3);
+sun.position.set(14, 22, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 70 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o });
+const TAU = Math.PI * 2;
+const polar = (a, r, y = 0) => new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
+
+// ---------- sea (floating water chunk) ----------
+const seaGeo = new THREE.RingGeometry(0, 16, 96, 32);
+seaGeo.rotateX(-Math.PI / 2);
+const sea = new THREE.Mesh(seaGeo, new THREE.MeshStandardMaterial({ color: 0x2aa6c9, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.92 }));
+sea.receiveShadow = true;
+scene.add(sea);
+const seaBase = seaGeo.attributes.position.array.slice();
+const wall = new THREE.Mesh(new THREE.CylinderGeometry(16, 13, 3, 96, 1), std(0x0e5f86, { roughness: 0.4 }));
+wall.position.y = -1.5;
+scene.add(wall);
+
+// ---------- land ----------
+const beach = new THREE.Mesh(new THREE.CylinderGeometry(7.7, 8.2, 0.9, 64), std(0xe6d5a8));
+beach.position.y = -0.2;
+const land = new THREE.Mesh(new THREE.CylinderGeometry(7, 7.4, 1.1, 64), std(0x6fae5a));
+land.position.y = -0.1;
+scene.add(beach, land);
+
+// Hallasan: smooth shield volcano with a crater lake, coloured by height
+const prof = new THREE.SplineCurve([
+  new THREE.Vector2(0.55, 3.0), new THREE.Vector2(0.8, 3.15), new THREE.Vector2(1.1, 2.95),
+  new THREE.Vector2(1.9, 2.2), new THREE.Vector2(3.0, 1.3), new THREE.Vector2(4.2, 0.65),
+  new THREE.Vector2(5.2, 0.45), new THREE.Vector2(6.2, 0.45),
+]).getPoints(40);
+const mtGeo = new THREE.LatheGeometry(prof, 72);
+{
+  const p = mtGeo.attributes.position, col = new Float32Array(p.count * 3), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) {
+    const h = p.getY(i), n = (Math.sin(p.getX(i) * 3.1) * Math.cos(p.getZ(i) * 2.7)) * 0.04;
+    if (h > 2.5) c.set(0x7a736b); else if (h > 1.7) c.set(0x8c8a5e); else if (h > 0.9) c.set(0x6a9a50); else c.set(0x5fa65a);
+    c.offsetHSL(0, 0, n);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  mtGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+const mountain = new THREE.Mesh(mtGeo, std(0xffffff, { vertexColors: true, flatShading: false, side: THREE.DoubleSide }));
+mountain.position.y = 0.45;
+scene.add(mountain);
+const lake = new THREE.Mesh(new THREE.CircleGeometry(0.62, 32), std(0x3fb7d8, { roughness: 0.1 }));
+lake.rotation.x = -Math.PI / 2; lake.position.y = 3.3;
+scene.add(lake);
+
+// Oreum (small parasitic cones)
+[[0.6, 4.5, 0.9], [1.9, 5.3, 0.7], [3.4, 4.9, 0.8], [4.9, 4.6, 0.6], [5.6, 5.4, 0.75]].forEach(([a, r, s]) => {
+  const o = new THREE.Mesh(new THREE.SphereGeometry(s, 24, 12, 0, TAU, 0, Math.PI / 2), std(0x6cae55));
+  o.scale.y = 0.75; o.position.copy(polar(a + 3.6, r + 0.2, 0.45));
+  scene.add(o);
+});
+
+// ---------- fields ----------
+const canola = new THREE.Mesh(new THREE.RingGeometry(5.2, 6.7, 48, 1, 2.8, 1.2), std(0xf7d81a, { emissive: 0x6a5400, emissiveIntensity: 0.25 }));
+canola.rotation.x = -Math.PI / 2; canola.position.y = 0.47;
+// RingGeometry theta runs CCW in XY; after rotateX it maps to -z, so mirror to keep polar() angle convention
+canola.scale.z = -1;
+scene.add(canola);
+{ // canola flowers
+  const geo = new THREE.SphereGeometry(0.06, 6, 6), mat = std(0xffe94a), im = new THREE.InstancedMesh(geo, mat, 260);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < 260; i++) {
+    const p = polar(2.8 + Math.random() * 1.2, 5.3 + Math.random() * 1.3, 0.55);
+    m.makeTranslation(p.x, p.y, p.z); im.setMatrixAt(i, m);
+  }
+  scene.add(im);
+}
+
+function makeTangerineTree() {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.35, 8), std(0x6b4a2b)); trunk.position.y = 0.17;
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), std(0x2f8a3a)); crown.position.y = 0.55; crown.scale.y = 0.85;
+  g.add(trunk, crown);
+  for (let i = 0; i < 7; i++) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), std(0xff8a10, { roughness: 0.5 }));
+    const a = Math.random() * TAU, e = Math.random() * 1.2 - 0.2;
+    f.position.set(Math.cos(a) * 0.33 * Math.cos(e), 0.55 + Math.sin(e) * 0.28, Math.sin(a) * 0.33 * Math.cos(e));
+    g.add(f);
+  }
+  return g;
+}
+for (let i = 0; i < 26; i++) {
+  const t = makeTangerineTree();
+  const row = i % 3, idx = Math.floor(i / 3);
+  t.position.copy(polar(1.25 + idx * 0.16, 5.35 + row * 0.5, 0.45));
+  t.rotation.y = Math.random() * TAU;
+  scene.add(t);
+}
+
+// basalt stone walls
+{
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.26, 0.3), std(0x2e2e32, { roughness: 1 }), 40);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (let i = 0; i < 40; i++) {
+    const a = 1.05 + i * 0.038, p = polar(a, 6.75, 0.5 + (i % 2) * 0.06);
+    e.set(0, -a + (Math.random() - 0.5) * 0.3, 0); q.setFromEuler(e);
+    m.compose(p, q, new THREE.Vector3(1, 1, 1));
+    im.setMatrixAt(i, m);
+  }
+  scene.add(im);
+}
+
+// ---------- dol hareubang ----------
+function makeDol() {
+  const g = new THREE.Group(), stone = std(0x55555a, { roughness: 1 }), dark = std(0x18181a);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.22, 0.55, 16), stone); body.position.y = 0.27;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 14), stone); head.scale.y = 1.1; head.position.y = 0.68;
+  const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.21, 0.16, 16), stone); hat.position.y = 0.9;
+  const hatTop = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 8, 0, TAU, 0, Math.PI / 2), stone); hatTop.position.y = 0.97;
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), stone); nose.position.set(0, 0.66, 0.2);
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), dark); eyeL.position.set(-0.08, 0.74, 0.17);
+  const eyeR = eyeL.clone(); eyeR.position.x = 0.08;
+  const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.07), stone); arm1.position.set(-0.08, 0.4, 0.2);
+  const arm2 = arm1.clone(); arm2.position.set(0.08, 0.3, 0.22);
+  g.add(body, head, hat, hatTop, nose, eyeL, eyeR, arm1, arm2);
+  g.scale.setScalar(1.5);
+  return g;
+}
+[0.62, 0.88].forEach(a => {
+  const d = makeDol(); d.position.copy(polar(a, 6.45, 0.45));
+  d.lookAt(polar(a, 12, 0.45)); scene.add(d);
+});
+
+// ---------- wind turbines (AnimationMixer, like the keyframes example) ----------
+const mixers = [];
+function makeTurbine(a) {
+  const g = new THREE.Group();
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 2.2, 12), std(0xf4f6f8, { roughness: 0.4 })); tower.position.y = 1.1;
+  const hub = new THREE.Group(); hub.position.set(0, 2.2, 0.12);
+  const nac = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 12), std(0xffffff)); hub.add(nac);
+  const blades = new THREE.Group(); blades.position.z = 0.08; hub.add(blades);
+  for (let i = 0; i < 3; i++) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.02), std(0xffffff, { roughness: 0.3 }));
+    const pv = new THREE.Group(); pv.rotation.z = i * TAU / 3; b.position.y = 0.55; pv.add(b); blades.add(pv);
+  }
+  g.add(tower, hub);
+  g.position.copy(polar(a, 6.2, 0.45)); g.lookAt(polar(a, 20, 0.45));
+  scene.add(g);
+  const clip = new THREE.AnimationClip('spin', 3, [new THREE.NumberKeyframeTrack('.rotation[z]', [0, 3], [0, -TAU])]);
+  const mx = new THREE.AnimationMixer(blades);
+  const act = mx.clipAction(clip); act.timeScale = 0.8 + Math.random() * 0.5; act.play();
+  mixers.push(mx);
+}
+[4.3, 4.75, 5.2].forEach(makeTurbine);
+
+// ---------- lighthouse ----------
+{
+  const g = new THREE.Group();
+  const tw = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.5, 16), std(0xffffff)); tw.position.y = 0.75;
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.25, 16), std(0xd62828)); band.position.y = 0.8;
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 16), std(0x333333)); top.position.y = 1.54;
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshStandardMaterial({ color: 0xfff2a0, emissive: 0xffd84a, emissiveIntensity: 2 })); lamp.position.y = 1.7;
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.28, 16), std(0xd62828)); roof.position.y = 1.98;
+  g.add(tw, band, top, lamp, roof);
+  g.position.copy(polar(5.85, 7.1, 0.35));
+  scene.add(g);
+}
+
+// ---------- boat ----------
+const boat = new THREE.Group();
+{
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 0.5), std(0xffffff, { roughness: 0.4 })); hull.position.y = 0.1;
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.08, 0.52), std(0x1b6ca8)); stripe.position.y = 0.2;
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.5, 4), std(0xffffff)); bow.rotation.set(0, Math.PI / 4, -Math.PI / 2); bow.scale.set(1, 1, 1.4); bow.position.set(0.85, 0.1, 0);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.36), std(0xff8a10)); cabin.position.set(-0.2, 0.4, 0);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6), std(0x333333)); mast.position.set(-0.2, 0.9, 0);
+  boat.add(hull, stripe, bow, cabin, mast);
+  boat.scale.setScalar(1.1);
+  scene.add(boat);
+}
+const wake = [];
+const wakeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false });
+for (let i = 0; i < 24; i++) {
+  const w = new THREE.Mesh(new THREE.CircleGeometry(0.12, 10), wakeMat.clone());
+  w.rotation.x = -Math.PI / 2; scene.add(w); wake.push(w);
+}
+
+// ---------- seagulls ----------
+const gulls = [];
+for (let i = 0; i < 6; i++) {
+  const g = new THREE.Group();
+  const mat = std(0xffffff, { side: THREE.DoubleSide, roughness: 0.6 });
+  const tri = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.12), new THREE.Vector3(0, 0, -0.12), new THREE.Vector3(0.55, 0, 0)]);
+  tri.computeVertexNormals();
+  const wl = new THREE.Group(), wr = new THREE.Group();
+  wl.add(new THREE.Mesh(tri, mat));
+  const m2 = new THREE.Mesh(tri, mat); m2.scale.x = -1; wr.add(m2);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), mat); body.scale.set(1, 0.8, 2);
+  g.add(wl, wr, body);
+  g.userData = { wl, wr, a: Math.random() * TAU, r: 7 + Math.random() * 5, y: 4.5 + Math.random() * 2.5, s: 0.25 + Math.random() * 0.15, ph: Math.random() * 6 };
+  gulls.push(g); scene.add(g);
+}
+
+// ---------- clouds ----------
+const clouds = [];
+const cloudMat = std(0xffffff, { roughness: 1, transparent: true, opacity: 0.95 });
+for (let i = 0; i < 7; i++) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 5; k++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.7 + Math.random() * 0.6, 14, 12), cloudMat);
+    s.position.set(k * 0.9 - 1.8, Math.random() * 0.4, (Math.random() - 0.5) * 0.7); s.scale.y = 0.65; g.add(s);
+  }
+  g.userData = { a: (i / 7) * TAU, r: 10 + (i % 3) * 3, y: 8 + (i % 4) * 1.2, s: 0.04 + Math.random() * 0.03 };
+  clouds.push(g); scene.add(g);
+}
+
+scene.traverse(o => { if (o.isMesh && o !== sea) { o.castShadow = true; o.receiveShadow = true; } });
+clouds.forEach(c => c.traverse(o => { o.receiveShadow = false; }));
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+const lastWake = new THREE.Vector3();
+let wi = 0;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  mixers.forEach(m => m.update(dt));
+
+  // waves
+  const p = seaGeo.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = seaBase[i * 3], z = seaBase[i * 3 + 2];
+    p.setY(i, Math.sin(x * 0.55 + t * 1.4) * 0.07 + Math.cos(z * 0.6 + t * 1.1) * 0.06);
+  }
+  p.needsUpdate = true; seaGeo.computeVertexNormals();
+
+  // boat circling the island
+  const ba = t * 0.12, br = 11.5;
+  boat.position.set(Math.cos(ba) * br, 0.05 + Math.sin(t * 2) * 0.05, Math.sin(ba) * br);
+  boat.rotation.y = -ba - Math.PI / 2 + Math.PI; // heading along the tangent
+  boat.rotation.z = Math.sin(t * 1.6) * 0.04;
+  if (boat.position.distanceTo(lastWake) > 0.35) {
+    lastWake.copy(boat.position);
+    const w = wake[wi++ % wake.length]; w.position.set(boat.position.x, 0.1, boat.position.z); w.userData.life = 1;
+  }
+  wake.forEach(w => { const l = (w.userData.life = Math.max(0, (w.userData.life ?? 0) - dt * 0.5)); w.material.opacity = l * 0.5; w.scale.setScalar(1 + (1 - l) * 3); });
+
+  // gulls
+  for (const g of gulls) {
+    const u = g.userData, a = u.a + t * u.s;
+    g.position.set(Math.cos(a) * u.r, u.y + Math.sin(t + u.ph) * 0.3, Math.sin(a) * u.r);
+    g.rotation.y = -a + Math.PI;
+    const f = Math.sin(t * 7 + u.ph) * 0.6;
+    u.wl.rotation.z = f; u.wr.rotation.z = -f;
+  }
+
+  // clouds
+  for (const c of clouds) {
+    const u = c.userData, a = u.a + t * u.s;
+    c.position.set(Math.cos(a) * u.r, u.y, Math.sin(a) * u.r);
+    c.rotation.y = -a;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

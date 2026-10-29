@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>반응형 메뉴 데모</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f3f5f9;
+      color: #222;
+      line-height: 1.6;
+    }
+
+    /* 상단 바: 로고 + 메뉴 */
+    .topbar {
+      background: #1f3a5f;
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .topbar-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+    }
+    .logo { font-weight: bold; font-size: 1.2rem; }
+
+    /* 햄버거 버튼 (PC에서는 숨김) */
+    .hamburger {
+      display: none;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 10px;
+    }
+    .hamburger span {
+      display: block;
+      height: 3px;
+      background: #fff;
+      border-radius: 2px;
+      margin: 5px 0;
+      transition: transform .25s, opacity .25s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+    /* 메뉴: PC에서는 가로로 */
+    #menu ul { display: flex; gap: .3rem; list-style: none; margin: 0; padding: 0; }
+    #menu button {
+      background: transparent;
+      color: #fff;
+      border: none;
+      font-size: 1rem;
+      padding: .8rem 1rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    #menu button:hover { background: rgba(255, 255, 255, .1); }
+    #menu button.active { border-bottom-color: #ffb74d; font-weight: bold; }
+
+    main { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem; min-height: 60vh; }
+    .panel { display: none; background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    .panel.active { display: block; }
+    .panel h2 { margin-top: 0; color: #1f3a5f; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+    .card { background: #f3f7fc; border-radius: 10px; padding: 1rem; }
+    .card h3 { margin: 0 0 .3rem; font-size: 1.05rem; }
+    .card p { margin: 0; font-size: .92rem; color: #555; }
+    .map-box {
+      height: 260px;
+      border-radius: 10px;
+      background: repeating-linear-gradient(45deg, #dbe9f6, #dbe9f6 14px, #e8f1fa 14px, #e8f1fa 28px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4a6a8a;
+      font-weight: bold;
+    }
+    .note { font-size: .85rem; color: #888; margin-top: 1rem; }
+
+    footer { background: #1f3a5f; color: #cfd8e6; text-align: center; padding: 1.2rem 1rem; font-size: .85rem; }
+
+    /* 모바일: 햄버거 표시, 메뉴는 아래로 펼쳐지는 세로 목록 */
+    @media (max-width: 720px) {
+      .hamburger { display: block; }
+      #menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1f3a5f;
+        border-top: 1px solid rgba(255, 255, 255, .15);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, .25);
+      }
+      #menu.open { display: block; }
+      #menu ul { flex-direction: column; gap: 0; }
+      #menu button {
+        width: 100%;
+        text-align: left;
+        padding: 1rem 1.2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, .1);
+        border-left: 4px solid transparent;
+      }
+      #menu button.active { border-bottom-color: rgba(255, 255, 255, .1); border-left-color: #ffb74d; }
+      main { padding: 1rem .8rem; }
+      .panel { padding: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo">🧭 My Portal</div>
+
+      <button class="hamburger" id="hamburger" aria-label="메뉴 열기" aria-expanded="false" aria-controls="menu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav id="menu">
+        <ul>
+          <li><button data-target="food" class="active">🍜 음식</button></li>
+          <li><button data-target="furniture">🛋️ 가구</button></li>
+          <li><button data-target="realty">🏠 부동산</button></li>
+          <li><button data-target="stock">📈 주식</button></li>
+          <li><button data-target="map">🗺️ 지도</button></li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+
+  <main>
+    <section id="food" class="panel active">
+      <h2>🍜 음식</h2>
+      <div class="cards">
+        <div class="card"><h3>한식</h3><p>든든한 한 끼, 찌개와 구이.</p></div>
+        <div class="card"><h3>디저트</h3><p>달콤한 카페 메뉴 모음.</p></div>
+        <div class="card"><h3>제철 음식</h3><p>계절마다 가장 맛있는 재료.</p></div>
+      </div>
+    </section>
+
+    <section id="furniture" class="panel">
+      <h2>🛋️ 가구</h2>
+      <div class="cards">
+        <div class="card"><h3>소파</h3><p>거실의 중심이 되는 가구.</p></div>
+        <div class="card"><h3>책상</h3><p>공부와 업무를 위한 공간.</p></div>
+        <div class="card"><h3>침대</h3><p>숙면을 위한 선택.</p></div>
+      </div>
+    </section>
+
+    <section id="realty" class="panel">
+      <h2>🏠 부동산</h2>
+      <div class="cards">
+        <div class="card"><h3>매매</h3><p>집을 사고파는 정보.</p></div>
+        <div class="card"><h3>전세 · 월세</h3><p>임대 형태별 안내.</p></div>
+        <div class="card"><h3>지역 정보</h3><p>동네별 생활 환경.</p></div>
+      </div>
+      <p class="note">※ 예시 문구이며 실제 매물 정보가 아닙니다.</p>
+    </section>
+
+    <section id="stock" class="panel">
+      <h2>📈 주식</h2>
+      <div class="cards">
+        <div class="card"><h3>시장 소식</h3><p>오늘의 경제 뉴스 자리.</p></div>
+        <div class="card"><h3>관심 종목</h3><p>내가 지켜보는 종목 목록 자리.</p></div>
+        <div class="card"><h3>용어 사전</h3><p>투자 용어 쉽게 풀이.</p></div>
+      </div>
+      <p class="note">※ 예시 문구이며 투자 조언이 아닙니다.</p>
+    </section>
+
+    <section id="map" class="panel">
+      <h2>🗺️ 지도</h2>
+      <div class="map-box">지도가 표시될 영역</div>
+      <p class="note">※ 실제 지도 서비스(카카오·네이버 등)를 연결하면 이 자리에 표시됩니다.</p>
+    </section>
+  </main>
+
+  <footer>&copy; 2026 My Portal · <span id="deviceLabel"></span></footer>
+
+  <script>
+    const hamburger = document.getElementById('hamburger');
+    const menu = document.getElementById('menu');
+    const buttons = menu.querySelectorAll('button');
+    const panels = document.querySelectorAll('.panel');
+
+    function setMenu(open) {
+      menu.classList.toggle('open', open);
+      hamburger.classList.toggle('open', open);
+      hamburger.setAttribute('aria-expanded', String(open));
+      hamburger.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+    }
+
+    hamburger.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        buttons.forEach((b) => b.classList.toggle('active', b === btn));
+        panels.forEach((p) => p.classList.toggle('active', p.id === btn.dataset.target));
+        setMenu(false); // 모바일에서 메뉴를 고르면 자동으로 닫기
+      });
+    });
+
+    // 화면이 넓어지면(PC) 열려 있던 모바일 메뉴 상태를 정리
+    const mq = window.matchMedia('(max-width: 720px)');
+    function onChange() {
+      if (!mq.matches) setMenu(false);
+      document.getElementById('deviceLabel').textContent = '현재 화면: ' + (mq.matches ? '모바일' : 'PC');
+    }
+    mq.addEventListener('change', onChange);
+    onChange();
+  </script>
+</body>
+</html>
