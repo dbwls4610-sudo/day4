@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export default function PhotoGrid({ items, favIds, onToggle }) {
+export default function PhotoGrid({ items, favIds, onToggle, cartIds, onCart }) {
   const [open, setOpen] = useState(null);
 
   useEffect(() => {
@@ -19,6 +19,9 @@ export default function PhotoGrid({ items, favIds, onToggle }) {
             <figure className="card" key={img.id}>
               <img src={img.thumb} alt={img.tags} loading="lazy" onClick={() => setOpen(img)} />
               <button className={`heart ${on ? 'on' : ''}`} onClick={() => onToggle(img)} aria-label={on ? '보관함에서 빼기' : '보관함에 담기'} aria-pressed={on}>{on ? '♥' : '♡'}</button>
+              {onCart && (
+                <button className={`cart-btn ${cartIds?.has(String(img.id)) ? 'on' : ''}`} onClick={() => onCart(img)} aria-label="장바구니에 담기">🛒</button>
+              )}
               <figcaption>{img.tags}</figcaption>
             </figure>
           );

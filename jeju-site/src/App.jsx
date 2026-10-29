@@ -6,9 +6,12 @@ import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import Favorites from './pages/Favorites.jsx';
+import Cart from './pages/Cart.jsx';
+import { useCart } from './cart.jsx';
 
 function Navbar() {
   const { user, nickname, signOut, loading } = useAuth();
+  const cart = useCart();
   const navigate = useNavigate();
   const logout = async () => { await signOut(); navigate('/'); };
   return (
@@ -17,6 +20,7 @@ function Navbar() {
       <nav>
         <NavLink to="/" end>갤러리</NavLink>
         <NavLink to="/favorites">♥ 내 보관함</NavLink>
+        <NavLink to="/cart">🛒 장바구니{user && cart.count > 0 ? ` (${cart.count})` : ''}</NavLink>
         {!loading && (user ? (
           <>
             <span className="me">🍊 {nickname}님</span>
@@ -37,7 +41,7 @@ export function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="center-note">불러오는 중…</div>;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname, msg: '보관함은 로그인 후에 쓸 수 있어요.' }} />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname, msg: '보관함과 장바구니는 로그인 후에 쓸 수 있어요.' }} />;
   return children;
 }
 
@@ -56,6 +60,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/favorites" element={<RequireAuth><Favorites /></RequireAuth>} />
+          <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
           <Route path="*" element={<div className="center-note">길을 잃었나요? <Link to="/">갤러리로 돌아가기 🍊</Link></div>} />
         </Routes>
       </main>

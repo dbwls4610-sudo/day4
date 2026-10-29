@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { useFavorites } from '../useFavorites.js';
+import { useCart } from '../cart.jsx';
 import PhotoGrid from './PhotoGrid.jsx';
 
 const CHIPS = [
@@ -27,6 +28,7 @@ async function fetchPage(q, page) {
 export default function Gallery() {
   const { user } = useAuth();
   const fav = useFavorites(user);
+  const cart = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,6 +69,12 @@ export default function Gallery() {
     } catch (e) { flash('저장에 실패했어요: ' + e.message); }
   };
 
+  const addToCart = async (img) => {
+    if (!user) { navigate('/login', { state: { from: location.pathname, msg: '🛒 장바구니는 로그인 후에 쓸 수 있어요.' } }); return; }
+    try { await cart.add(img); flash('장바구니에 담았어요 🛒'); }
+    catch (e) { flash('담기에 실패했어요: ' + e.message); }
+  };
+
   const search = (e) => { e.preventDefault(); const t = text.trim(); if (t) { setChip(-1); setQuery(t); } };
 
   return (
@@ -84,7 +92,7 @@ export default function Gallery() {
       {error && <div className="error">⚠️ {error}</div>}
       {!error && !loading && items.length === 0 && <div className="center-note">검색 결과가 없어요. 다른 단어로 찾아볼까요? 🍊</div>}
 
-      <PhotoGrid items={items} favIds={fav.ids} onToggle={toggleFav} />
+      <PhotoGrid items={items} favIds={fav.ids} onToggle={toggleFav} cartIds={cart.ids} onCart={addToCart} />
 
       <div className="more">
         {loading && <span>불러오는 중… 🍊</span>}

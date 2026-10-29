@@ -52,6 +52,16 @@ img { max-width: 100%; display: block; }
 .heart { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--navy); background: #fff; font-size: 22px; line-height: 1; cursor: pointer; color: #e8527a; transition: transform .1s; }
 .heart:hover { transform: scale(1.12); }
 .heart.on { background: #e8527a; color: #fff; }
+.cart-btn { position: absolute; top: 56px; right: 8px; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--navy); background: #fff; font-size: 20px; line-height: 1; cursor: pointer; transition: transform .1s; }
+.cart-btn:hover { transform: scale(1.12); }
+.cart-btn.on { background: var(--orange); }
+.cart-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cart-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #fff; border: 2px solid var(--navy); border-radius: var(--radius); flex-wrap: wrap; }
+.cart-row img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+.cart-name { flex: 1; min-width: 120px; }
+.qty { display: flex; align-items: center; gap: 8px; }
+.qty .btn { padding: 2px 12px; }
+.cart-foot { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; font-size: 18px; }
 .more { text-align: center; margin: 18px 0; }
 .center-note { text-align: center; padding: 40px 16px; font-size: 18px; }
 .error { background: #ffe3e3; border: 2px solid #e8527a; border-radius: 12px; padding: 10px 14px; margin: 10px 0; color: #8a1f3d; }
